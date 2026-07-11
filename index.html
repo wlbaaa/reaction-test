@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>反应速度测试</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+    background: #0a0a1a;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .header {
+    width: 100%;
+    padding: 16px 20px 8px;
+    text-align: center;
+  }
+
+  .title {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: #888;
+    margin-top: 4px;
+    letter-spacing: 6px;
+  }
+
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin: 16px auto 0;
+    width: 260px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 25px;
+    padding: 3px;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 8px 0;
+    text-align: center;
+    font-size: 14px;
+    border-radius: 22px;
+    cursor: pointer;
+    transition: all 0.3s;
+    color: #999;
+  }
+
+  .tab.active {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .game-area-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 420px;
+    padding: 20px;
+  }
+
+  .game-area {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    max-height: 60vh;
+    max-width: 360px;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: box-shadow 0.15s, background 0.3s;
+  }
+
+  /* 等待状态 - 红色发光边框 */
+  .game-area.waiting {
+    background: linear-gradient(145deg, #1a1040, #2d1b69);
+    box-shadow: 0 0 20px rgba(255, 50, 80, 0.5),
+                0 0 60px rgba(255, 50, 80, 0.2),
+                inset 0 0 20px rgba(255, 50, 80, 0.1);
+    border: 2px solid rgba(255, 50, 80, 0.8);
+  }
+
+  /* 可以点击状态 - 绿色发光边框 */
+  .game-area.ready {
+    background: linear-gradient(145deg, #0a2a1a, #1a4a2a);
+    box-shadow: 0 0 20px rgba(50, 255, 100, 0.5),
+                0 0 60px rgba(50, 255, 100, 0.2),
+                inset 0 0 20px rgba(50, 255, 100, 0.1);
+    border: 2px solid rgba(50, 255, 100, 0.8);
+  }
+
+  /* 太早点击状态 */
+  .game-area.too-early {
+    background: linear-gradient(145deg, #2a1a0a, #4a2a10);
+    box-shadow: 0 0 20px rgba(255, 165, 0, 0.5),
+                0 0 60px rgba(255, 165, 0, 0.2),
+                inset 0 0 20px rgba(255, 165, 0, 0.1);
+    border: 2px solid rgba(255, 165, 0, 0.8);
+  }
+
+  /* 结果显示状态 */
+  .game-area.result {
+    background: linear-gradient(145deg, #1a1040, #2d1b69);
+    box-shadow: 0 0 20px rgba(100, 100, 255, 0.3),
+                0 0 60px rgba(100, 100, 255, 0.1),
+                inset 0 0 20px rgba(100, 100, 255, 0.1);
+    border: 2px solid rgba(150, 150, 255, 0.6);
+  }
+
+  .game-text {
+    font-size: 22px;
+    font-weight: 600;
+    text-align: center;
+    padding: 0 20px;
+    line-height: 1.6;
+  }
+
+  .game-text .highlight {
+    color: #ff6b6b;
+  }
+
+  .game-area.ready .game-text .highlight {
+    color: #50ff80;
+  }
+
+  .round-indicator {
+    position: absolute;
+    bottom: 20px;
+    font-size: 14px;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 3px;
+    font-weight: 500;
+  }
+
+  .result-time {
+    font-size: 56px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #50ff80, #00d4ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+
+  .result-label {
+    font-size: 16px;
+    color: #aaa;
+    margin-bottom: 4px;
+  }
+
+  .result-avg {
+    font-size: 14px;
+    color: #888;
+    margin-top: 8px;
+  }
+
+  .result-avg span {
+    color: #ff6b6b;
+    font-weight: 600;
+  }
+
+  .result-rounds {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .result-round-tag {
+    background: rgba(255,255,255,0.08);
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    color: #ccc;
+  }
+
+  .result-round-tag span {
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .btn-restart {
+    margin-top: 24px;
+    padding: 12px 40px;
+    border: none;
+    border-radius: 25px;
+    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 20px rgba(255, 107, 107, 0.3);
+  }
+
+  .btn-restart:active {
+    transform: scale(0.95);
+  }
+
+  /* 排行榜面板 */
+  .leaderboard {
+    display: none;
+    width: 100%;
+    max-width: 400px;
+    padding: 20px;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .leaderboard.show {
+    display: block;
+  }
+
+  .leaderboard h3 {
+    text-align: center;
+    font-size: 18px;
+    margin-bottom: 16px;
+    color: #ccc;
+  }
+
+  .lb-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .lb-rank {
+    font-size: 18px;
+    font-weight: 700;
+    width: 36px;
+  }
+
+  .lb-rank.gold { color: #ffd700; }
+  .lb-rank.silver { color: #c0c0c0; }
+  .lb-rank.bronze { color: #cd7f32; }
+
+  .lb-time {
+    font-size: 16px;
+    font-weight: 600;
+    color: #50ff80;
+  }
+
+  .lb-date {
+    font-size: 12px;
+    color: #666;
+  }
+
+  .lb-empty {
+    text-align: center;
+    color: #555;
+    padding: 40px 0;
+    font-size: 15px;
+  }
+
+  .game-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .game-container.hidden {
+    display: none;
+  }
+
+  /* 动画 */
+  @keyframes pulse-red {
+    0%, 100% { box-shadow: 0 0 20px rgba(255, 50, 80, 0.5), 0 0 60px rgba(255, 50, 80, 0.2); }
+    50% { box-shadow: 0 0 30px rgba(255, 50, 80, 0.7), 0 0 80px rgba(255, 50, 80, 0.3); }
+  }
+
+  .game-area.waiting {
+    animation: pulse-red 2s ease-in-out infinite;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .game-area.result {
+    animation: fadeIn 0.4s ease-out;
+  }
+
+  .footer-hint {
+    padding: 12px;
+    text-align: center;
+    font-size: 12px;
+    color: #444;
+    width: 100%;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="title">REACTION TEST</div>
+  <div class="subtitle">反 应 速 度 测 试</div>
+  <div class="tabs">
+    <div class="tab active" data-tab="elite" onclick="switchTab('elite')">精英测试</div>
+    <div class="tab" data-tab="rank" onclick="switchTab('rank')">排名数据库</div>
+  </div>
+</div>
+
+<div class="game-container" id="gameContainer">
+  <div class="game-area-wrapper">
+    <div class="game-area waiting" id="gameArea" ontouchstart="handleTouch(event)" onclick="handleClick()">
+      <div class="game-text" id="gameText">
+        等待信号...<br><span class="highlight">(变绿触碰)</span>
+      </div>
+      <div class="round-indicator" id="roundIndicator">ROUND 1/5</div>
+    </div>
+  </div>
+  <div class="footer-hint">共 5 轮测试，取平均反应时间 | 手指触碰即响应</div>
+</div>
+
+<div class="leaderboard" id="leaderboard">
+  <h3>🏆 历史最佳记录</h3>
+  <div id="lbList"></div>
+</div>
+
+<script>
+  // 游戏状态
+  const TOTAL_ROUNDS = 5;
+  let currentRound = 1;
+  let results = [];
+  let state = 'waiting'; // waiting, ready, too-early, result
+  let timer = null;
+  let startTime = 0;
+
+  const gameArea = document.getElementById('gameArea');
+  const gameText = document.getElementById('gameText');
+  const roundIndicator = document.getElementById('roundIndicator');
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+
+    if (tab === 'elite') {
+      document.getElementById('gameContainer').classList.remove('hidden');
+      document.getElementById('leaderboard').classList.remove('show');
+    } else {
+      document.getElementById('gameContainer').classList.add('hidden');
+      document.getElementById('leaderboard').classList.add('show');
+      renderLeaderboard();
+    }
+  }
+
+  function handleTouch(e) {
+    e.preventDefault();
+    handleClick();
+  }
+
+  function handleClick() {
+    if (state === 'waiting') {
+      // 太早点击了
+      state = 'too-early';
+      clearTimeout(timer);
+      gameArea.className = 'game-area too-early';
+      gameText.innerHTML = '太早了！<br><span class="highlight" style="color:#ffa500">请等变绿后再触碰</span>';
+      setTimeout(() => {
+        resetRound();
+      }, 1200);
+    } else if (state === 'ready') {
+      // 记录反应时间
+      const reactionTime = Date.now() - startTime;
+      results.push(reactionTime);
+
+      if (currentRound < TOTAL_ROUNDS) {
+        // 显示本轮结果
+        state = 'result';
+        gameArea.className = 'game-area result';
+        gameText.innerHTML = `
+          <div class="result-label">本轮反应时间</div>
+          <div class="result-time">${reactionTime} ms</div>
+          <div class="result-avg">已完成 <span>${currentRound}</span> / ${TOTAL_ROUNDS} 轮</div>
+        `;
+        setTimeout(() => {
+          currentRound++;
+          resetRound();
+        }, 1500);
+      } else {
+        // 全部完成
+        showFinalResult();
+      }
+    } else if (state === 'result') {
+      // 点击重新开始
+      restartGame();
+    }
+  }
+
+  function resetRound() {
+    state = 'waiting';
+    gameArea.className = 'game-area waiting';
+    gameText.innerHTML = '等待信号...<br><span class="highlight">(变绿触碰)</span>';
+    roundIndicator.textContent = `ROUND ${currentRound}/${TOTAL_ROUNDS}`;
+
+    // 随机延迟 1~4 秒后变绿
+    const delay = 1000 + Math.random() * 3000;
+    timer = setTimeout(() => {
+      state = 'ready';
+      gameArea.className = 'game-area ready';
+      gameText.innerHTML = '<span class="highlight" style="color:#50ff80;font-size:28px">触 碰 ！</span>';
+      startTime = Date.now();
+    }, delay);
+  }
+
+  function showFinalResult() {
+    state = 'result';
+    const avg = Math.round(results.reduce((a, b) => a + b, 0) / results.length);
+    const best = Math.min(...results);
+
+    // 评价
+    let rating = '';
+    if (avg < 200) rating = '🏆 神级反应！';
+    else if (avg < 250) rating = '⚡ 非常快！';
+    else if (avg < 300) rating = '🔥 优秀水平';
+    else if (avg < 350) rating = '👍 高于平均';
+    else if (avg < 400) rating = '😊 正常水平';
+    else rating = '🐢 继续加油';
+
+    // 保存记录
+    saveRecord(avg);
+
+    gameArea.className = 'game-area result';
+    gameText.innerHTML = `
+      <div class="result-label">平均反应时间</div>
+      <div class="result-time">${avg} ms</div>
+      <div style="font-size:18px;margin:8px 0">${rating}</div>
+      <div class="result-avg">最快一轮: <span>${best} ms</span></div>
+      <div class="result-rounds">
+        ${results.map((r, i) => `<div class="result-round-tag">R${i+1}: <span>${r}ms</span></div>`).join('')}
+      </div>
+      <button class="btn-restart" onclick="event.stopPropagation(); restartGame()">再来一次</button>
+    `;
+    roundIndicator.textContent = '测试完成';
+  }
+
+  function restartGame() {
+    currentRound = 1;
+    results = [];
+    clearTimeout(timer);
+    resetRound();
+  }
+
+  // 本地存储排行榜
+  function saveRecord(avg) {
+    let records = JSON.parse(localStorage.getItem('reactionRecords') || '[]');
+    records.push({
+      time: avg,
+      date: new Date().toLocaleDateString('zh-CN')
+    });
+    records.sort((a, b) => a.time - b.time);
+    records = records.slice(0, 10); // 只保留前10
+    localStorage.setItem('reactionRecords', JSON.stringify(records));
+  }
+
+  function renderLeaderboard() {
+    const records = JSON.parse(localStorage.getItem('reactionRecords') || '[]');
+    const lbList = document.getElementById('lbList');
+
+    if (records.length === 0) {
+      lbList.innerHTML = '<div class="lb-empty">暂无记录，先去测试一下吧！</div>';
+      return;
+    }
+
+    lbList.innerHTML = records.map((r, i) => {
+      const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+      const medal = i === 0 ? '' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
+      return `
+        <div class="lb-item">
+          <div>
+            <div class="lb-rank ${rankClass}">${medal}</div>
+          </div>
+          <div class="lb-time">${r.time} ms</div>
+          <div class="lb-date">${r.date}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 初始化
+  resetRound();
+</script>
+
+</body>
+</html>
